@@ -1,0 +1,35 @@
+{
+  "users": {
+    "standard_user": {
+      "username": "standard_user",
+      "password": "secret_sauce"
+    },
+    "locked_out_user": {
+      "username": "locked_out_user",
+      "password": "secret_sauce"
+    },
+    "invalidUser": {
+      "username": "wrong_user",
+      "password": "wrong_pass"
+    }
+  },
+  "products": {
+    "backpack": "Sauce Labs Backpack",
+    "bike_light": "Sauce Labs Bike Light"
+  },
+  "checkout": {
+    "valid": {
+      "firstName": "Collins",
+      "lastName": "Quaci",
+      "postalCode": "00000"
+    },
+    "invalid": {
+      "firstName": "",
+      "lastName": "Quaci",
+      "postalCode": "00000"
+    }
+  },
+  "errors": {
+    "missingFirstName": "Error: First Name is required"
+  }
+}

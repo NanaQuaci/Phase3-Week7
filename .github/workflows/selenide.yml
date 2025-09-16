@@ -1,0 +1,87 @@
+name: Run Swag Labs UI Tests with Allure
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: 🧪 Run UI Tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t swaglabs_ui_tests .
+
+      - name: Run tests inside Docker
+        run: |
+          mkdir -p allure-results
+          docker run --rm \
+            -v ${{ github.workspace }}/allure-results:/app/allure-results \
+            swaglabs_ui_tests
+
+      - name: Upload Allure results (with screenshots)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+  deploy-allure-report:
+    name: 🚀 Deploy Allure Report
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Install Allure CLI
+        run: |
+          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          tar -xzf allure-2.27.0.tgz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+
+      - name: Generate Allure report
+        run: allure generate allure-results --clean -o allure-report
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          publish_branch: gh-pages
+
+  notify-slack:
+    name: 🔔 Slack Notification
+    needs: [ test, deploy-allure-report ]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Send Slack notification
+        run: |
+          STATUS="${{ needs.test.result }}"
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅"
+          else
+            EMOJI="❌"
+          fi
+
+          curl -X POST -H 'Content-type: application/json' --data "{
+            \"text\": \"${EMOJI} UI Tests finished with status: *$STATUS*\n📦 Repo: $GITHUB_REPOSITORY\n🔗 Commit: <https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA|$GITHUB_SHA>\n📊 Report: https://nanaquaci.github.io/Phase3-Week1/\"
+          }" ${{ secrets.SLACK_WEBHOOK_URL }}
