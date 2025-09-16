@@ -80,11 +80,50 @@ jobs:
         run: |
           STATUS="${{ needs.test.result }}"
           if [ "$STATUS" = "success" ]; then
+            COLOR="good"
             EMOJI="✅"
+            TITLE="*UI Tests Passed*"
           else
+            COLOR="danger"
             EMOJI="❌"
+            TITLE="*UI Tests Failed*"
           fi
 
           curl -X POST -H 'Content-type: application/json' --data "{
-            \"text\": \"${EMOJI} UI Tests finished with status: *$STATUS*\n📦 Repo: $GITHUB_REPOSITORY\n🔗 Commit: <https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA|$GITHUB_SHA>\n📊 Report: https://nanaquaci.github.io/Phase3-Week7/\"
+            \"attachments\": [
+              {
+                \"color\": \"$COLOR\",
+                \"blocks\": [
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \":rotating_light: $TITLE\n*Status:* $STATUS\"
+                    }
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"fields\": [
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Repo:*\n$GITHUB_REPOSITORY\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Commit:*\n<https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA|$GITHUB_SHA>\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Report:*\n<https://nanaquaci.github.io/Phase3-Week7/|Allure Report>\"
+                      },
+                      {
+                        \"type\": \"mrkdwn\",
+                        \"text\": \"*Build URL:*\n$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           }" ${{ secrets.SLACK_WEBHOOK_URL }}
+      
