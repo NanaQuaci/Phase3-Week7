@@ -32,7 +32,7 @@ public class CartPage {
     }
 
     public boolean isCartBadgeGone() {
-        return $("#shopping_cart_container .shopping_cart_badge").is(not(visible));
+        return $$("#shopping_cart_container .shopping_cart_badge").isEmpty();
     }
 
     public void checkout() {
