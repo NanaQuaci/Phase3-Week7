@@ -30,4 +30,13 @@ public class LoginPage {
     public void shouldSeeError(String expectedError) {
         $(".error-message-container").shouldHave(text(expectedError));
     }
+
+    public boolean isProductsPageDisplayed() {
+        return $("#inventory_container").is(visible);
+    }
+
+    public boolean isErrorDisplayed(String expectedError) {
+        return $(".error-message-container").has(text(expectedError));
+    }
+
 }

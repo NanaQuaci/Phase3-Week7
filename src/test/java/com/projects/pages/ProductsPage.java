@@ -4,6 +4,7 @@ import static com.codeborne.selenide.Selenide.*;
 import static com.codeborne.selenide.Condition.*;
 
 public class ProductsPage {
+
     public void shouldHaveProduct(String productName) {
         $$("div.inventory_item").findBy(text(productName)).should(appear);
     }
@@ -15,5 +16,18 @@ public class ProductsPage {
                 .click();
     }
 
-    public void openCart() { $("#shopping_cart_container a").click(); }
+    public void openCart() {
+        $("#shopping_cart_container a").click();
+    }
+
+    public boolean isProductDisplayed(String productName) {
+        return $$("div.inventory_item").findBy(text(productName)).is(visible);
+    }
+
+    public boolean isProductInCart(String productName) {
+        return $$("div.inventory_item")
+                .findBy(text(productName))
+                .$("button.btn_inventory")
+                .has(text("Remove"));
+    }
 }
