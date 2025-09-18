@@ -32,7 +32,8 @@ public class CartPage {
     }
 
     public boolean isCartBadgeGone() {
-        return $$("#shopping_cart_container .shopping_cart_badge").isEmpty();
+        return $$("#shopping_cart_container .shopping_cart_badge").isEmpty()
+                || !$("#shopping_cart_container .shopping_cart_badge").isDisplayed();
     }
 
     public void checkout() {
