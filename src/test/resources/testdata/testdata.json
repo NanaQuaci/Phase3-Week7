@@ -11,6 +11,22 @@
     "invalidUser": {
       "username": "wrong_user",
       "password": "wrong_pass"
+    },
+    "empty_username": {
+      "username": "",
+      "password": "secret_sauce"
+    },
+    "empty_password": {
+      "username": "standard_user",
+      "password": ""
+    },
+    "problem_user": {
+      "username": "problem_user",
+      "password": "secret_sauce"
+    },
+    "performance_glitch_user": {
+      "username": "performance_glitch_user",
+      "password": "secret_sauce"
     }
   },
   "products": {
@@ -30,6 +46,10 @@
     }
   },
   "errors": {
+    "invalidLogin": "Epic sadface: Username and password do not match any user in this service",
+    "lockedOutUser": "Epic sadface: Sorry, this user has been locked out.",
+    "emptyUsername": "Epic sadface: Username is required",
+    "emptyPassword": "Epic sadface: Password is required",
     "missingFirstName": "Error: First Name is required"
   }
 }

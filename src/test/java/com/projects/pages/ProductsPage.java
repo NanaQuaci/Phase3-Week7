@@ -30,4 +30,8 @@ public class ProductsPage {
                 .$("button.btn_inventory")
                 .has(text("Remove"));
     }
+
+    public void shouldBeVisible() {
+        $(".inventory_list").should(appear);
+    }
 }
