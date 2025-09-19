@@ -7,10 +7,14 @@ import com.projects.pages.LoginPage;
 import com.projects.util.TestDataLoader;
 import com.projects.util.User;
 import io.qameta.allure.*;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.Test;
+
+import java.util.stream.Stream;
 
 import static com.codeborne.selenide.Selenide.$;
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,117 +26,72 @@ public class CartTest extends BaseTest {
 
     private static final Logger log = LoggerFactory.getLogger(CartTest.class);
 
-    @Test
-    @Story("Add Item to Cart Only")
+    // --------------------- PARAMETERIZED TESTS ---------------------
+
+    @ParameterizedTest(name = "Add and Remove Product: {0}")
+    @MethodSource("cartProducts")
+    @Story("Add and Remove Items")
     @Severity(SeverityLevel.CRITICAL)
-    @Description("Verify that an item can be added to the cart and cart badge updates")
-    public void testAddItemToCartOnly() {
+    @Description("Verify adding and removing different products updates the cart correctly")
+    void testAddAndRemoveItemsParameterized(String productName) {
         User user = TestDataLoader.getUser("standard_user");
-        log.info("Starting test: Add Item to Cart Only");
+        log.info("Starting parameterized test: Add and Remove Product '{}'", productName);
 
         LoginPage loginPage = new LoginPage();
-        log.info("Opening login page and logging in as {}", user.getUsername());
         loginPage.openLogin();
         loginPage.loginAs(user);
 
         CartPage cartPage = new CartPage();
-        log.info("Adding item to cart: Sauce Labs Backpack");
-        cartPage.addItemToCart("Sauce Labs Backpack");
+        cartPage.addItemToCart(productName);
+        assertTrue(cartPage.isItemInCart(productName), "Item should be in cart");
 
-        String badgeCount = cartPage.getCartBadgeCount();
-        log.info("Verifying cart badge count is updated to 1");
-        assertEquals("1", badgeCount, "Cart badge should reflect 1 item after adding");
+        cartPage.removeItemFromCart(productName);
+        assertFalse(cartPage.isItemInCart(productName), "Item should be removed");
 
-        log.info("Test completed: Add Item to Cart Only");
+        log.info("Parameterized test completed for product '{}'", productName);
     }
 
-    @Test
-    @Story("Add and Remove Item")
-    @Severity(SeverityLevel.CRITICAL)
-    @Description("Test adding and removing item from cart updates the cart badge and contents")
-    public void testAddAndRemoveItemFromCart() {
-        User user = TestDataLoader.getUser("standard_user");
-        log.info("Starting test: Add and Remove Item");
-
-        LoginPage loginPage = new LoginPage();
-        log.info("Opening login page and logging in as {}", user.getUsername());
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        CartPage cartPage = new CartPage();
-        log.info("Adding item to cart: Sauce Labs Backpack");
-        cartPage.addItemToCart("Sauce Labs Backpack");
-
-        log.info("Verifying cart badge shows 1 item");
-        assertEquals("1", cartPage.getCartBadgeCount(), "Cart badge should show 1 after adding item");
-
-        log.info("Navigating to cart and verifying item is present");
-        cartPage.goToCart();
-        assertTrue(cartPage.isItemInCart("Sauce Labs Backpack"), "Item should be present in cart");
-
-        log.info("Removing item from cart and verifying it is gone");
-        cartPage.removeItemFromCart("Sauce Labs Backpack");
-        assertFalse(cartPage.isItemInCart("Sauce Labs Backpack"), "Item should be removed from cart");
-
-        log.info("Test completed: Add and Remove Item");
-    }
-
-    @Test
-    @Story("Remove Item Without Navigating to Cart")
-    @Severity(SeverityLevel.CRITICAL)
-    @Description("Verify user can remove item directly from product page after adding it")
-    public void testRemoveItemWithoutOpeningCart() {
-        User user = TestDataLoader.getUser("standard_user");
-        log.info("Starting test: Remove Item Without Navigating to Cart");
-
-        LoginPage loginPage = new LoginPage();
-        log.info("Opening login page and logging in as {}", user.getUsername());
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        CartPage cartPage = new CartPage();
-        log.info("Adding item to cart: Sauce Labs Backpack");
-        cartPage.addItemToCart("Sauce Labs Backpack");
-
-        log.info("Verifying cart badge shows 1 item");
-        assertEquals("1", cartPage.getCartBadgeCount(), "Cart badge should show 1 after adding item");
-
-        log.info("Removing item directly from product page");
-        cartPage.removeItemFromCart("Sauce Labs Backpack");
-
-        log.info("Verifying cart badge disappears after removal");
-        assertTrue(cartPage.isCartBadgeGone(), "Cart badge should not be visible after removing last item");
-
-        log.info("Test completed: Remove Item Without Navigating to Cart");
-    }
-
-    @Test
+    @ParameterizedTest(name = "Add Multiple Products: {0} and {1}")
+    @MethodSource("cartMultipleProducts")
     @Story("Add Multiple Items")
     @Severity(SeverityLevel.NORMAL)
     @Description("Verify user can add multiple items and cart badge reflects correct count")
-    public void testAddMultipleItems() {
+    void testAddMultipleItemsParameterized(String product1, String product2) {
         User user = TestDataLoader.getUser("standard_user");
-        log.info("Starting test: Add Multiple Items");
+        log.info("Starting parameterized test: Add Multiple Products '{}', '{}'", product1, product2);
 
         LoginPage loginPage = new LoginPage();
         loginPage.openLogin();
         loginPage.loginAs(user);
 
         CartPage cartPage = new CartPage();
-        cartPage.addItemToCart("Sauce Labs Backpack");
-        cartPage.addItemToCart("Sauce Labs Bike Light");
+        cartPage.addItemToCart(product1);
+        cartPage.addItemToCart(product2);
 
-        log.info("Verifying cart badge shows 2 items");
-        assertEquals("2", cartPage.getCartBadgeCount(), "Cart badge should show 2 after adding two items");
+        String badgeCount = cartPage.getCartBadgeCount();
+        assertEquals("2", badgeCount, "Cart badge should show 2 after adding two items");
 
-        log.info("Test completed: Add Multiple Items");
+        log.info("Parameterized test completed for products '{}', '{}'", product1, product2);
     }
+
+    static Stream<String> cartProducts() {
+        return Stream.of("Sauce Labs Backpack", "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt");
+    }
+
+    static Stream<Object[]> cartMultipleProducts() {
+        return Stream.of(
+                new Object[]{"Sauce Labs Backpack", "Sauce Labs Bike Light"},
+                new Object[]{"Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket"}
+        );
+    }
+
+    // --------------------- SCENARIO-SPECIFIC TESTS ---------------------
 
     @Test
     @Story("Add Same Item Twice")
     @Severity(SeverityLevel.NORMAL)
     @Description("Verify adding the same item twice does not duplicate in cart")
-    public void testAddSameItemTwice() {
+    void testAddSameItemTwice() {
         User user = TestDataLoader.getUser("standard_user");
         log.info("Starting test: Add Same Item Twice");
 
@@ -144,7 +103,6 @@ public class CartTest extends BaseTest {
         cartPage.addItemToCart("Sauce Labs Backpack");
         cartPage.addItemToCart("Sauce Labs Backpack"); // clicking twice
 
-        log.info("Verifying cart badge is still 1 (no duplicates)");
         assertEquals("1", cartPage.getCartBadgeCount(), "Cart badge should not increase when adding the same item again");
 
         log.info("Test completed: Add Same Item Twice");
@@ -154,7 +112,7 @@ public class CartTest extends BaseTest {
     @Story("Remove Nonexistent Item")
     @Severity(SeverityLevel.MINOR)
     @Description("Verify removing an item that was never added does not break the cart")
-    public void testRemoveNonexistentItem() {
+    void testRemoveNonexistentItem() {
         User user = TestDataLoader.getUser("standard_user");
         log.info("Starting test: Remove Nonexistent Item");
 
@@ -163,10 +121,8 @@ public class CartTest extends BaseTest {
         loginPage.loginAs(user);
 
         CartPage cartPage = new CartPage();
-        log.info("Attempting to remove an item not in cart: Sauce Labs Bolt T-Shirt");
         cartPage.removeItemFromCart("Sauce Labs Bolt T-Shirt");
 
-        log.info("Verifying cart badge is gone since nothing was added");
         assertTrue(cartPage.isCartBadgeGone(), "Cart badge should not exist when no items were added");
 
         log.info("Test completed: Remove Nonexistent Item");
@@ -176,7 +132,7 @@ public class CartTest extends BaseTest {
     @Story("Cart Persistence After Logout")
     @Severity(SeverityLevel.NORMAL)
     @Description("Verify cart does not persist after logout and login again")
-    public void testCartDoesNotPersistAfterLogout() {
+    void testCartDoesNotPersistAfterLogout() {
         User user = TestDataLoader.getUser("standard_user");
         log.info("Starting test: Cart Persistence After Logout");
 
@@ -185,17 +141,14 @@ public class CartTest extends BaseTest {
         loginPage.loginAs(user);
 
         CartPage cartPage = new CartPage();
-        log.info("Adding item to cart: Sauce Labs Backpack");
         cartPage.addItemToCart("Sauce Labs Backpack");
 
-        log.info("Logging out");
+        // Logout
         $("#react-burger-menu-btn").click();
         $("#logout_sidebar_link").click();
 
-        log.info("Logging in again with same user");
         loginPage.loginAs(user);
 
-        log.info("Verifying cart badge is gone after re-login");
         assertTrue(cartPage.isCartBadgeGone(), "Cart should be reset after logout and login");
 
         log.info("Test completed: Cart Persistence After Logout");

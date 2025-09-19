@@ -4,9 +4,12 @@ import com.projects.pages.*;
 import com.projects.util.TestDataLoader;
 import com.projects.util.User;
 import io.qameta.allure.*;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.stream.Stream;
 
 import static com.codeborne.selenide.Condition.text;
 import static com.codeborne.selenide.Selenide.$$;
@@ -24,124 +27,99 @@ public class ProductsTest {
     private final ProductDetailsPage detailsPage = new ProductDetailsPage();
     private final CartPage cartPage = new CartPage();
 
-    @Test
-    @Story("View Products")
+    // -----------------------
+    // Data source for parameterized test
+    // -----------------------
+    static Stream<ProductScenario> productScenarios() {
+        return Stream.of(
+                new ProductScenario("Sauce Labs Backpack", "view"),
+                new ProductScenario("Sauce Labs Bike Light", "addToCart"),
+                new ProductScenario("Sauce Labs Fleece Jacket", "removeFromCart"),
+                new ProductScenario("Sauce Labs Bolt T-Shirt", "addMultiple")
+        );
+    }
+
+    // -----------------------
+    // Parameterized Test
+    // -----------------------
+    @ParameterizedTest(name = "{index} => product={0}, action={1}")
+    @MethodSource("productScenarios")
+    @Story("Product Operations")
     @Severity(SeverityLevel.CRITICAL)
-    @Description("Verify user can see a product after logging in")
-    public void testViewProduct() {
+    @Description("Run multiple product-related operations dynamically")
+    void testProductScenarios(ProductScenario scenario) {
         User user = TestDataLoader.getUser("standard_user");
 
-        log.info("Opening login page for product view test");
+        log.info("Starting product test for user {}", user.getUsername());
         loginPage.openLogin();
         loginPage.loginAs(user);
 
-        String productName = "Sauce Labs Backpack";
-        log.info("Checking if product '{}' is displayed on Products page", productName);
+        String product = scenario.productName;
 
-        productsPage.shouldHaveProduct(productName);
+        switch (scenario.action) {
+            case "view":
+                log.info("Checking if product '{}' is displayed", product);
+                productsPage.shouldHaveProduct(product);
+                assertTrue(productsPage.isProductDisplayed(product),
+                        "Product should be visible on Products page");
+                break;
 
-        assertTrue(productsPage.isProductDisplayed(productName),
-                "Product '" + productName + "' should be visible on Products page");
+            case "addToCart":
+                log.info("Adding product '{}' to cart", product);
+                productsPage.addProductToCart(product);
+                assertTrue(productsPage.isProductInCart(product),
+                        "Product should be marked as added to cart");
+                break;
 
-        log.info("Product view test completed successfully");
+            case "removeFromCart":
+                log.info("Adding and then removing product '{}' from cart", product);
+                productsPage.addProductToCart(product);
+                assertTrue(productsPage.isProductInCart(product),
+                        "Product should first be in cart");
+
+                cartPage.removeItemFromCart(product);
+                assertTrue(cartPage.isCartBadgeGone(),
+                        "Cart badge should disappear after removing product");
+                break;
+
+            case "addMultiple":
+                log.info("Adding multiple products to cart: {}", product);
+                productsPage.addProductToCart(product);
+                String badgeCount = cartPage.getCartBadgeCount();
+                assertEquals("1", badgeCount,
+                        "Cart badge should update correctly after adding product");
+                break;
+
+            case "viewDetails":
+                log.info("Opening product details for '{}'", product);
+                $$(".inventory_item_name").findBy(text(product)).click();
+                detailsPage.shouldSeeProductTitle(product);
+                detailsPage.backToProducts();
+                productsPage.shouldBeVisible();
+                break;
+
+            default:
+                log.warn("Unknown action '{}' for product '{}'", scenario.action, product);
+        }
+
+        log.info("Product test completed for product '{}'", product);
     }
 
-    @Test
-    @Story("Add to Cart")
-    @Severity(SeverityLevel.BLOCKER)
-    @Description("Verify user can add a product to the cart")
-    public void testAddProductToCart() {
-        User user = TestDataLoader.getUser("standard_user");
+    // -----------------------
+    // Helper class for parameterization
+    // -----------------------
+    static class ProductScenario {
+        final String productName;
+        final String action;
 
-        log.info("Opening login page for add-to-cart test");
-        loginPage.openLogin();
-        loginPage.loginAs(user);
+        public ProductScenario(String productName, String action) {
+            this.productName = productName;
+            this.action = action;
+        }
 
-        String productName = "Sauce Labs Bike Light";
-        log.info("Adding product '{}' to cart", productName);
-
-        productsPage.addProductToCart(productName);
-
-        assertTrue(productsPage.isProductInCart(productName),
-                "Product '" + productName + "' should be marked as added to cart");
-
-        log.info("Add-to-cart test completed successfully");
-    }
-
-    @Test
-    @Story("View Product Details")
-    @Severity(SeverityLevel.NORMAL)
-    @Description("Verify user can open a product detail page and go back to products")
-    public void testViewProductDetailsAndBack() {
-        User user = TestDataLoader.getUser("standard_user");
-
-        log.info("Opening login page for product details test");
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        String productName = "Sauce Labs Backpack";
-        log.info("Opening product details for '{}'", productName);
-
-        // Click product to open details
-        $$(".inventory_item_name").findBy(text(productName)).click();
-
-        detailsPage.shouldSeeProductTitle(productName);
-        log.info("Verified product details page shows product title: {}", productName);
-
-        detailsPage.backToProducts();
-        productsPage.shouldBeVisible();
-
-        log.info("Successfully navigated back to products page");
-    }
-
-    @Test
-    @Story("Remove Product from Cart")
-    @Severity(SeverityLevel.CRITICAL)
-    @Description("Verify user can remove a product from the cart")
-    public void testRemoveProductFromCart() {
-        User user = TestDataLoader.getUser("standard_user");
-
-        log.info("Opening login page for remove-from-cart test");
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        String productName = "Sauce Labs Fleece Jacket";
-        log.info("Adding product '{}' to cart, then removing it", productName);
-
-        productsPage.addProductToCart(productName);
-        assertTrue(productsPage.isProductInCart(productName),
-                "Product should first be in cart");
-
-        cartPage.removeItemFromCart(productName);
-        assertTrue(cartPage.isCartBadgeGone(),
-                "Cart badge should disappear after removing product");
-
-        log.info("Remove-from-cart test completed successfully");
-    }
-
-    @Test
-    @Story("Multiple Items in Cart")
-    @Severity(SeverityLevel.NORMAL)
-    @Description("Verify user can add multiple products and cart badge updates correctly")
-    public void testAddMultipleProductsToCart() {
-        User user = TestDataLoader.getUser("standard_user");
-
-        log.info("Opening login page for multiple-items test");
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        String product1 = "Sauce Labs Backpack";
-        String product2 = "Sauce Labs Bolt T-Shirt";
-
-        log.info("Adding two products '{}' and '{}' to cart", product1, product2);
-
-        productsPage.addProductToCart(product1);
-        productsPage.addProductToCart(product2);
-
-        String badgeCount = cartPage.getCartBadgeCount();
-        assertEquals("2", badgeCount,
-                "Cart badge should show 2 after adding two products");
-
-        log.info("Multiple-items test completed successfully");
+        @Override
+        public String toString() {
+            return productName + " [" + action + "]";
+        }
     }
 }

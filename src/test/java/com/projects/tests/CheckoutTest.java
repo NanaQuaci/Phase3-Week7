@@ -7,13 +7,15 @@ import com.projects.util.CheckoutInfo;
 import com.projects.util.TestDataLoader;
 import com.projects.util.User;
 import io.qameta.allure.*;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.stream.Stream;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Epic("Swag Labs UI Tests")
 @Feature("Checkout Functionality")
@@ -22,209 +24,94 @@ public class CheckoutTest extends BaseTest {
 
     private static final Logger log = LoggerFactory.getLogger(CheckoutTest.class);
 
-    @Test
-    @Story("Successful Checkout")
+    // -----------------------
+    // Parameterized test data
+    // -----------------------
+    static Stream<CheckoutScenario> checkoutScenarios() {
+        return Stream.of(
+                new CheckoutScenario("standard_user", new String[]{"backpack"}, "valid", true),
+                new CheckoutScenario("standard_user", new String[]{"backpack", "bike_light"}, "valid", true),
+                new CheckoutScenario("standard_user", new String[]{"backpack"}, "invalid", false),
+                new CheckoutScenario("locked_out_user", new String[]{"backpack"}, "valid", false),
+                new CheckoutScenario("performance_glitch_user", new String[]{"backpack"}, "valid", true)
+        );
+    }
+
+    // -----------------------
+    // Parameterized Test
+    // -----------------------
+    @ParameterizedTest(name = "{index} => user={0}")
+    @MethodSource("checkoutScenarios")
+    @Story("Checkout Scenarios")
     @Severity(SeverityLevel.BLOCKER)
-    @Description("Verify user can complete checkout with valid information")
-    public void testSuccessfulCheckout() {
-        User user = TestDataLoader.getUser("standard_user");
-        String product = TestDataLoader.getProduct("backpack");
-        CheckoutInfo checkoutInfo = TestDataLoader.getCheckoutInfo("valid");
+    @Description("Run multiple checkout scenarios with different users, products, and data")
+    void testCheckoutScenarios(CheckoutScenario scenario) {
+        User user = TestDataLoader.getUser(scenario.username);
 
-        log.info("Starting test: Successful Checkout with user {}", user.getUsername());
+        log.info("Starting checkout test for user: {}", user.getUsername());
         LoginPage loginPage = new LoginPage();
         loginPage.openLogin();
         loginPage.loginAs(user);
 
-        log.info("Adding product to cart: {}", product);
-        ProductsPage products = new ProductsPage();
-        products.addProductToCart(product);
-        products.openCart();
+        ProductsPage productsPage = new ProductsPage();
+        for (String productKey : scenario.products) {
+            String product = TestDataLoader.getProduct(productKey);
+            log.info("Adding product to cart: {}", product);
+            productsPage.addProductToCart(product);
+        }
+        productsPage.openCart();
 
-        log.info("Proceeding to checkout");
-        CartPage cart = new CartPage();
-        cart.checkout();
+        CartPage cartPage = new CartPage();
+        cartPage.checkout();
 
-        log.info("Filling in checkout information: {}, {}, {}",
-                checkoutInfo.getFirstName(), checkoutInfo.getLastName(), checkoutInfo.getPostalCode());
-        CheckoutPage checkout = new CheckoutPage();
-        checkout.fillInformation(checkoutInfo.getFirstName(),
+        CheckoutInfo checkoutInfo = TestDataLoader.getCheckoutInfo(scenario.checkoutDataKey);
+        CheckoutPage checkoutPage = new CheckoutPage();
+        checkoutPage.fillInformation(checkoutInfo.getFirstName(),
                 checkoutInfo.getLastName(),
                 checkoutInfo.getPostalCode());
 
-        log.info("Finishing checkout process");
-        checkout.finish();
+        if (scenario.shouldSucceed) {
+            checkoutPage.finish();
+            checkoutPage.assertOrderComplete();
+            assertTrue(checkoutPage.isOrderCompleteDisplayed(),
+                    "Order completion message should be displayed");
+        } else {
+            String expectedError;
+            if (user.getUsername().equals("locked_out_user")) {
+                expectedError = TestDataLoader.getErrorMessage("lockedOut");
+            } else if (scenario.checkoutDataKey.equals("invalid")) {
+                expectedError = TestDataLoader.getErrorMessage("missingFirstName");
+            } else {
+                expectedError = "Unknown error";
+            }
 
-        log.info("Verifying order completion message");
-        checkout.assertOrderComplete();
-        assertTrue(checkout.isOrderCompleteDisplayed(), "Order completion message should be displayed");
+            checkoutPage.shouldSeeError(expectedError);
+            assertTrue(checkoutPage.isErrorDisplayed(expectedError),
+                    "Expected error message should be displayed: " + expectedError);
+        }
 
-        log.info("Test completed: Successful Checkout");
+        log.info("Test completed for user: {}", user.getUsername());
     }
 
-    @Test
-    @Story("Missing Information Validation")
-    @Severity(SeverityLevel.CRITICAL)
-    @Description("Verify checkout shows error when mandatory fields are missing")
-    public void testCheckoutWithMissingInfo() {
-        User user = TestDataLoader.getUser("standard_user");
-        String product = TestDataLoader.getProduct("backpack");
-        CheckoutInfo checkoutInfo = TestDataLoader.getCheckoutInfo("invalid");
-        String expectedError = TestDataLoader.getErrorMessage("missingFirstName");
+    // -----------------------
+    // Helper class for parameterization
+    // -----------------------
+    static class CheckoutScenario {
+        final String username;
+        final String[] products;
+        final String checkoutDataKey;
+        final boolean shouldSucceed;
 
-        log.info("Starting test: Checkout With Missing Info for user {}", user.getUsername());
-        LoginPage loginPage = new LoginPage();
-        loginPage.openLogin();
-        loginPage.loginAs(user);
+        public CheckoutScenario(String username, String[] products, String checkoutDataKey, boolean shouldSucceed) {
+            this.username = username;
+            this.products = products;
+            this.checkoutDataKey = checkoutDataKey;
+            this.shouldSucceed = shouldSucceed;
+        }
 
-        log.info("Adding product to cart: {}", product);
-        ProductsPage products = new ProductsPage();
-        products.addProductToCart(product);
-        products.openCart();
-
-        log.info("Proceeding to checkout");
-        CartPage cart = new CartPage();
-        cart.checkout();
-
-        log.info("Filling in incomplete checkout information: {}, {}, {}",
-                checkoutInfo.getFirstName(), checkoutInfo.getLastName(), checkoutInfo.getPostalCode());
-        CheckoutPage checkout = new CheckoutPage();
-        checkout.fillInformation(checkoutInfo.getFirstName(),
-                checkoutInfo.getLastName(),
-                checkoutInfo.getPostalCode());
-
-        log.info("Verifying error message for missing information");
-        checkout.shouldSeeError(expectedError);
-        assertTrue(checkout.isErrorDisplayed(expectedError),
-                "Expected error message should be displayed: " + expectedError);
-
-        log.info("Test completed: Checkout With Missing Info");
+        @Override
+        public String toString() {
+            return username + " [" + String.join(",", products) + "]";
+        }
     }
-
-    @Test
-    @Story("Checkout Cancel Flow")
-    @Severity(SeverityLevel.NORMAL)
-    @Description("Verify that user can cancel checkout and return to product listing")
-    public void testCheckoutCancelFlow() {
-        User user = TestDataLoader.getUser("standard_user");
-        String product = TestDataLoader.getProduct("bikeLight");
-
-        log.info("Starting test: Checkout Cancel Flow for user {}", user.getUsername());
-        LoginPage loginPage = new LoginPage();
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        log.info("Adding product to cart: {}", product);
-        ProductsPage products = new ProductsPage();
-        products.addProductToCart(product);
-        products.openCart();
-
-        log.info("Proceeding to checkout");
-        CartPage cart = new CartPage();
-        cart.checkout();
-
-        log.info("Canceling checkout");
-        CheckoutPage checkout = new CheckoutPage();
-        checkout.cancel();
-
-        log.info("Verifying that user is redirected back to products page");
-        products.shouldBeVisible();
-
-        log.info("Test completed: Checkout Cancel Flow");
-    }
-
-
-    @Test
-    @Story("Checkout with Multiple Products")
-    @Severity(SeverityLevel.BLOCKER)
-    @Description("Verify user can checkout successfully with multiple items in cart")
-    public void testCheckoutWithMultipleProducts() {
-        User user = TestDataLoader.getUser("standard_user");
-        String product1 = TestDataLoader.getProduct("backpack");
-        String product2 = TestDataLoader.getProduct("bikeLight");
-        CheckoutInfo checkoutInfo = TestDataLoader.getCheckoutInfo("valid");
-
-        log.info("Starting test: Checkout with Multiple Products for user {}", user.getUsername());
-        LoginPage loginPage = new LoginPage();
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        log.info("Adding products to cart: {}, {}", product1, product2);
-        ProductsPage products = new ProductsPage();
-        products.addProductToCart(product1);
-        products.addProductToCart(product2);
-        products.openCart();
-
-        CartPage cart = new CartPage();
-        cart.checkout();
-
-        CheckoutPage checkout = new CheckoutPage();
-        checkout.fillInformation(checkoutInfo.getFirstName(),
-                checkoutInfo.getLastName(),
-                checkoutInfo.getPostalCode());
-        checkout.finish();
-
-        log.info("Verifying order completion");
-        checkout.assertOrderComplete();
-        assertTrue(checkout.isOrderCompleteDisplayed(), "Order completion message should be displayed");
-
-        log.info("Test completed: Checkout with Multiple Products");
-    }
-
-
-    @Test
-    @Story("Checkout Blocked for Locked Out User")
-    @Severity(SeverityLevel.CRITICAL)
-    @Description("Verify locked_out_user cannot proceed to checkout")
-    public void testLockedOutUserCheckoutBlocked() {
-        User user = TestDataLoader.getUser("locked_out_user");
-        String expectedError = TestDataLoader.getErrorMessage("lockedOut");
-
-        log.info("Starting test: Locked Out User Checkout Blocked for {}", user.getUsername());
-        LoginPage loginPage = new LoginPage();
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        log.info("Verifying error message for locked out user");
-        loginPage.shouldSeeError(expectedError);
-        assertTrue(loginPage.isErrorDisplayed(expectedError), "Expected error message should be displayed");
-
-        log.info("Test completed: Locked Out User Checkout Blocked");
-    }
-
-
-    @Test
-    @Story("Checkout with Performance Glitch User")
-    @Severity(SeverityLevel.MINOR)
-    @Description("Verify performance_glitch_user can still complete checkout despite delays")
-    public void testCheckoutWithPerformanceGlitchUser() {
-        User user = TestDataLoader.getUser("performance_glitch_user");
-        String product = TestDataLoader.getProduct("backpack");
-        CheckoutInfo checkoutInfo = TestDataLoader.getCheckoutInfo("valid");
-
-        log.info("Starting test: Checkout With Performance Glitch User {}", user.getUsername());
-        LoginPage loginPage = new LoginPage();
-        loginPage.openLogin();
-        loginPage.loginAs(user);
-
-        ProductsPage products = new ProductsPage();
-        products.addProductToCart(product);
-        products.openCart();
-
-        CartPage cart = new CartPage();
-        cart.checkout();
-
-        CheckoutPage checkout = new CheckoutPage();
-        checkout.fillInformation(checkoutInfo.getFirstName(),
-                checkoutInfo.getLastName(),
-                checkoutInfo.getPostalCode());
-        checkout.finish();
-
-        checkout.assertOrderComplete();
-        assertTrue(checkout.isOrderCompleteDisplayed(), "Order completion message should be displayed");
-
-        log.info("Test completed: Checkout With Performance Glitch User");
-    }
-
-
 }

@@ -6,7 +6,7 @@ import io.qameta.allure.selenide.AllureSelenide;
 import org.junit.jupiter.api.*;
 import org.openqa.selenium.chrome.ChromeOptions;
 
-public class BaseTest {
+public class  BaseTest {
 
     @BeforeAll
     public static void setUp() {
